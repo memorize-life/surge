@@ -3,7 +3,7 @@ package surge
 import (
 	"io/ioutil"
 	"os"
-	"reflect"
+	"sync/atomic"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -152,43 +152,44 @@ func TestOpenFile(t *testing.T) {
 type glacierMock struct {
 	glacieriface.GlacierAPI
 
-	callCount uint
+	callCount uint32
 
-	initiateMultipartUploadInput   *glacier.InitiateMultipartUploadInput
-	initiateMultipartUploadRequest glacier.InitiateMultipartUploadRequest
-
-	listPartsInput   *glacier.ListPartsInput
-	listPartsRequest glacier.ListPartsRequest
-
-	uploadMultipartPartInput   *glacier.UploadMultipartPartInput
-	uploadMultipartPartRequest glacier.UploadMultipartPartRequest
-
-	completeMultipartUploadInput   *glacier.CompleteMultipartUploadInput
-	completeMultipartUploadRequest glacier.CompleteMultipartUploadRequest
+	initiateMultipartUploadRequest func() glacier.InitiateMultipartUploadRequest
+	listPartsRequest               func() glacier.ListPartsRequest
+	uploadMultipartPartRequest     func() glacier.UploadMultipartPartRequest
+	completeMultipartUploadRequest func() glacier.CompleteMultipartUploadRequest
 }
 
-func (m *glacierMock) InitiateMultipartUploadRequest(input *glacier.InitiateMultipartUploadInput) glacier.InitiateMultipartUploadRequest {
-	m.callCount++
-	m.initiateMultipartUploadInput = input
-	return m.initiateMultipartUploadRequest
+func (m *glacierMock) InitiateMultipartUploadRequest(*glacier.InitiateMultipartUploadInput) glacier.InitiateMultipartUploadRequest {
+	atomic.AddUint32(&m.callCount, 1)
+	if m.initiateMultipartUploadRequest != nil {
+		return m.initiateMultipartUploadRequest()
+	}
+	return glacier.InitiateMultipartUploadRequest{}
 }
 
-func (m *glacierMock) ListPartsRequest(input *glacier.ListPartsInput) glacier.ListPartsRequest {
-	m.callCount++
-	m.listPartsInput = input
-	return m.listPartsRequest
+func (m *glacierMock) ListPartsRequest(*glacier.ListPartsInput) glacier.ListPartsRequest {
+	atomic.AddUint32(&m.callCount, 1)
+	if m.listPartsRequest != nil {
+		return m.listPartsRequest()
+	}
+	return glacier.ListPartsRequest{}
 }
 
-func (m *glacierMock) UploadMultipartPartRequest(input *glacier.UploadMultipartPartInput) glacier.UploadMultipartPartRequest {
-	m.callCount++
-	m.uploadMultipartPartInput = input
-	return m.uploadMultipartPartRequest
+func (m *glacierMock) UploadMultipartPartRequest(*glacier.UploadMultipartPartInput) glacier.UploadMultipartPartRequest {
+	atomic.AddUint32(&m.callCount, 1)
+	if m.uploadMultipartPartRequest != nil {
+		return m.uploadMultipartPartRequest()
+	}
+	return glacier.UploadMultipartPartRequest{}
 }
 
-func (m *glacierMock) CompleteMultipartUploadRequest(input *glacier.CompleteMultipartUploadInput) glacier.CompleteMultipartUploadRequest {
-	m.callCount++
-	m.completeMultipartUploadInput = input
-	return m.completeMultipartUploadRequest
+func (m *glacierMock) CompleteMultipartUploadRequest(*glacier.CompleteMultipartUploadInput) glacier.CompleteMultipartUploadRequest {
+	atomic.AddUint32(&m.callCount, 1)
+	if m.completeMultipartUploadRequest != nil {
+		return m.completeMultipartUploadRequest()
+	}
+	return glacier.CompleteMultipartUploadRequest{}
 }
 
 func TestInitiateUpload(t *testing.T) {
@@ -199,19 +200,17 @@ func TestInitiateUpload(t *testing.T) {
 		if err := uploader.initiateUpload(); err != nil {
 			t.Errorf("unexpected error: %#v", err)
 		}
-
-		if mock.initiateMultipartUploadInput != nil {
-			t.Error("unexpected call of InitiateMultipartUploadRequest")
-		}
 	})
 
 	t.Run("send error", func(t *testing.T) {
 		err := errors.New("test")
 		mock := &glacierMock{
-			initiateMultipartUploadRequest: glacier.InitiateMultipartUploadRequest{
-				Request: &aws.Request{
-					Error: err,
-				},
+			initiateMultipartUploadRequest: func() glacier.InitiateMultipartUploadRequest {
+				return glacier.InitiateMultipartUploadRequest{
+					Request: &aws.Request{
+						Error: err,
+					},
+				}
 			},
 		}
 		input := newTestUploadInput()
@@ -226,12 +225,14 @@ func TestInitiateUpload(t *testing.T) {
 	t.Run("sends", func(t *testing.T) {
 		uploadId := "test_id"
 		mock := &glacierMock{
-			initiateMultipartUploadRequest: glacier.InitiateMultipartUploadRequest{
-				Request: &aws.Request{
-					Data: &glacier.InitiateMultipartUploadOutput{
-						UploadId: &uploadId,
+			initiateMultipartUploadRequest: func() glacier.InitiateMultipartUploadRequest {
+				return glacier.InitiateMultipartUploadRequest{
+					Request: &aws.Request{
+						Data: &glacier.InitiateMultipartUploadOutput{
+							UploadId: &uploadId,
+						},
 					},
-				},
+				}
 			},
 		}
 		input := newTestUploadInput()
@@ -244,16 +245,6 @@ func TestInitiateUpload(t *testing.T) {
 
 		if uploader.input.UploadId != uploadId {
 			t.Errorf("got %#v, want %#v", uploader.input.UploadId, uploadId)
-		}
-
-		initiateInput := &glacier.InitiateMultipartUploadInput{
-			AccountId: &uploader.input.AccountId,
-			PartSize:  aws.String("123"),
-			VaultName: &uploader.input.VaultName,
-		}
-
-		if !reflect.DeepEqual(mock.initiateMultipartUploadInput, initiateInput) {
-			t.Errorf("got %#v, want %#v", mock.initiateMultipartUploadInput, initiateInput)
 		}
 	})
 }
@@ -391,7 +382,9 @@ func TestCheckUploadedParts(t *testing.T) {
 			Error: err,
 		}
 		mock := &glacierMock{
-			listPartsRequest: newListPartsRequestMock(&request),
+			listPartsRequest: func() glacier.ListPartsRequest {
+				return newListPartsRequestMock(&request)
+			},
 		}
 		uploader := New(mock, newTestUploadInput())
 
@@ -409,7 +402,9 @@ func TestCheckUploadedParts(t *testing.T) {
 			Operation: &aws.Operation{},
 		}
 		mock := &glacierMock{
-			listPartsRequest: newListPartsRequestMock(&request),
+			listPartsRequest: func() glacier.ListPartsRequest {
+				return newListPartsRequestMock(&request)
+			},
 		}
 		uploader := New(mock, newTestUploadInput())
 		errString := "part size mismatch"
@@ -428,7 +423,9 @@ func TestCheckUploadedParts(t *testing.T) {
 			Operation: &aws.Operation{},
 		}
 		mock := &glacierMock{
-			listPartsRequest: newListPartsRequestMock(&request),
+			listPartsRequest: func() glacier.ListPartsRequest {
+				return newListPartsRequestMock(&request)
+			},
 		}
 		uploader := New(mock, input)
 
@@ -449,7 +446,9 @@ func TestCheckUploadedParts(t *testing.T) {
 			Operation: &aws.Operation{},
 		}
 		mock := &glacierMock{
-			listPartsRequest: newListPartsRequestMock(&request),
+			listPartsRequest: func() glacier.ListPartsRequest {
+				return newListPartsRequestMock(&request)
+			},
 		}
 		uploader := New(mock, input)
 		errString := "part (test) range is invalid"
@@ -486,10 +485,12 @@ func TestUploadPart(t *testing.T) {
 
 		err = errors.New("test")
 		mock := &glacierMock{
-			uploadMultipartPartRequest: glacier.UploadMultipartPartRequest{
-				Request: &aws.Request{
-					Error: err,
-				},
+			uploadMultipartPartRequest: func() glacier.UploadMultipartPartRequest {
+				return glacier.UploadMultipartPartRequest{
+					Request: &aws.Request{
+						Error: err,
+					},
+				}
 			},
 		}
 
@@ -527,10 +528,12 @@ func TestUploadPart(t *testing.T) {
 		}
 
 		mock := &glacierMock{
-			uploadMultipartPartRequest: glacier.UploadMultipartPartRequest{
-				Request: &aws.Request{
-					Data: &glacier.UploadMultipartPartOutput{},
-				},
+			uploadMultipartPartRequest: func() glacier.UploadMultipartPartRequest {
+				return glacier.UploadMultipartPartRequest{
+					Request: &aws.Request{
+						Data: &glacier.UploadMultipartPartOutput{},
+					},
+				}
 			},
 		}
 
@@ -571,10 +574,12 @@ func TestMultipartUpload(t *testing.T) {
 
 		err = errors.New("test")
 		mock := &glacierMock{
-			uploadMultipartPartRequest: glacier.UploadMultipartPartRequest{
-				Request: &aws.Request{
-					Error: err,
-				},
+			uploadMultipartPartRequest: func() glacier.UploadMultipartPartRequest {
+				return glacier.UploadMultipartPartRequest{
+					Request: &aws.Request{
+						Error: err,
+					},
+				}
 			},
 		}
 
@@ -610,10 +615,12 @@ func TestMultipartUpload(t *testing.T) {
 		}
 
 		mock := &glacierMock{
-			uploadMultipartPartRequest: glacier.UploadMultipartPartRequest{
-				Request: &aws.Request{
-					Data: &glacier.UploadMultipartPartOutput{},
-				},
+			uploadMultipartPartRequest: func() glacier.UploadMultipartPartRequest {
+				return glacier.UploadMultipartPartRequest{
+					Request: &aws.Request{
+						Data: &glacier.UploadMultipartPartOutput{},
+					},
+				}
 			},
 		}
 
@@ -663,10 +670,12 @@ func TestCompleteUpload(t *testing.T) {
 
 		err = errors.New("test")
 		mock := &glacierMock{
-			completeMultipartUploadRequest: glacier.CompleteMultipartUploadRequest{
-				Request: &aws.Request{
-					Error: err,
-				},
+			completeMultipartUploadRequest: func() glacier.CompleteMultipartUploadRequest {
+				return glacier.CompleteMultipartUploadRequest{
+					Request: &aws.Request{
+						Error: err,
+					},
+				}
 			},
 		}
 
@@ -702,12 +711,14 @@ func TestCompleteUpload(t *testing.T) {
 
 		location := "test_location"
 		mock := &glacierMock{
-			completeMultipartUploadRequest: glacier.CompleteMultipartUploadRequest{
-				Request: &aws.Request{
-					Data: &glacier.UploadArchiveOutput{
-						Location: &location,
+			completeMultipartUploadRequest: func() glacier.CompleteMultipartUploadRequest {
+				return glacier.CompleteMultipartUploadRequest{
+					Request: &aws.Request{
+						Data: &glacier.UploadArchiveOutput{
+							Location: &location,
+						},
 					},
-				},
+				}
 			},
 		}
 
