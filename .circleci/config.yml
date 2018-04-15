@@ -6,4 +6,6 @@ jobs:
       - image: golang:1
     steps:
       - checkout
-      - run: go test -race ./...
+
+      - run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      - run: bash <(curl -s https://codecov.io/bash)
