@@ -1,0 +1,9 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/31z4/surge
+    docker:
+      - image: golang:1
+    steps:
+      - checkout
+      - run: go test -race ./...
