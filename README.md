@@ -1,8 +1,13 @@
+<p align="center"><img src="logo.jpg"></p>
+<h6 align="center">
+    Image courtesy of <a href="http://irinaklimina.com">Irina Klimina</a>
+</h6>
+
+# Surge
+
 [![CircleCI](https://circleci.com/gh/31z4/surge.svg?style=shield&circle-token=e3e6511f388b7a7e987a596fc6a10c1b009c1efe)](https://circleci.com/gh/31z4/surge)
 [![codecov](https://codecov.io/gh/31z4/surge/branch/master/graph/badge.svg)](https://codecov.io/gh/31z4/surge)
 [![Go Report Card](https://goreportcard.com/badge/github.com/31z4/surge)](https://goreportcard.com/report/github.com/31z4/surge)
-
-# Surge
 
 `surge` is a fast and reliable Amazon Glacier multipart uploader.
 
