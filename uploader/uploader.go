@@ -1,25 +1,24 @@
-// Package surge implements Amazon Glacier multipart upload.
+// Package uploader implements Amazon Glacier multipart upload.
 //
 // For information about Glacier, see https://aws.amazon.com/glacier/.
-package surge
+package uploader
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 
+	"github.com/31z4/surge/utils"
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 	"github.com/aws/aws-sdk-go-v2/service/glacier/glacieriface"
 	"github.com/pkg/errors"
 )
 
-// UploadInput provides options for multipart upload to an Amazon Glacier vault.
-type UploadInput struct {
+// Input provides options for multipart upload to an Amazon Glacier vault.
+type Input struct {
 	// The AccountId value is the AWS account ID of the account that owns the vault.
 	// You can either specify an AWS account ID or optionally a single '-' (hyphen),
 	// in which case Amazon Glacier uses the AWS account ID associated with the
@@ -43,10 +42,10 @@ type UploadInput struct {
 	PartSize int64
 }
 
-// Surge holds internal uploader state.
-type Surge struct {
+// Uploader holds internal uploader state.
+type Uploader struct {
 	service  glacieriface.GlacierAPI
-	input    *UploadInput
+	input    *Input
 	uploaded map[int64]struct{}
 
 	file   *os.File
@@ -54,52 +53,16 @@ type Surge struct {
 	offset int64
 }
 
-// New creates a new instance of the Surge uploader with a service and input.
-func New(service glacieriface.GlacierAPI, input *UploadInput) *Surge {
-	return &Surge{
+// New creates a new instance of the uploader with a service and input.
+func New(service glacieriface.GlacierAPI, input *Input) *Uploader {
+	return &Uploader{
 		service:  service,
 		input:    input,
 		uploaded: make(map[int64]struct{}),
 	}
 }
 
-type contentRange struct {
-	offset int64
-	limit  int64
-}
-
-func (r *contentRange) String() string {
-	return fmt.Sprint(r.offset, "-", r.offset+r.limit-1)
-}
-
-func rangeFromString(s *string) *contentRange {
-	split := strings.Split(*s, "-")
-	if len(split) != 2 {
-		return nil
-	}
-
-	var result contentRange
-
-	if begin, err := strconv.ParseInt(split[0], 10, 64); err == nil {
-		result.offset = begin
-	} else {
-		return nil
-	}
-
-	if end, err := strconv.ParseInt(split[1], 10, 64); err == nil {
-		result.limit = end - result.offset + 1
-	} else {
-		return nil
-	}
-
-	if result.limit <= 0 {
-		return nil
-	}
-
-	return &result
-}
-
-func (s *Surge) initiateUpload() error {
+func (s *Uploader) initiateUpload() error {
 	if s.input.UploadId != "" {
 		return nil
 	}
@@ -121,7 +84,7 @@ func (s *Surge) initiateUpload() error {
 	return nil
 }
 
-func (s *Surge) getNextRange() *contentRange {
+func (s *Uploader) getNextRange() *utils.Range {
 	var offset int64
 
 	for {
@@ -142,10 +105,13 @@ func (s *Surge) getNextRange() *contentRange {
 		limit = s.size - offset
 	}
 
-	return &contentRange{offset, limit}
+	return &utils.Range{
+		Offset: offset,
+		Limit: limit,
+	}
 }
 
-func (s *Surge) openFile() error {
+func (s *Uploader) openFile() error {
 	file, err := os.Open(s.input.FileName)
 	if err != nil {
 		return err
@@ -168,9 +134,9 @@ func (s *Surge) openFile() error {
 	return nil
 }
 
-func (s *Surge) uploadPart(r *contentRange) error {
-	body := io.NewSectionReader(s.file, r.offset, r.limit)
-	treeHash := s.computeTreeHash(body)
+func (s *Uploader) uploadPart(r *utils.Range) error {
+	body := io.NewSectionReader(s.file, r.Offset, r.Limit)
+	treeHash := utils.ComputeTreeHash(body)
 	if treeHash == nil {
 		return errors.New("could not compute hashes")
 	}
@@ -193,8 +159,8 @@ func (s *Surge) uploadPart(r *contentRange) error {
 	return nil
 }
 
-func (s *Surge) multipartUpload(jobs int) {
-	parts := make(chan *contentRange)
+func (s *Uploader) multipartUpload(jobs int) {
+	parts := make(chan *utils.Range)
 
 	var wg sync.WaitGroup
 	wg.Add(jobs)
@@ -226,40 +192,30 @@ func (s *Surge) multipartUpload(jobs int) {
 	wg.Wait()
 }
 
-func (s *Surge) computeTreeHash(r io.ReadSeeker) *string {
-	treeHash := glacier.ComputeHashes(r).TreeHash
-	if treeHash == nil {
-		return nil
-	}
-
-	encoded := hex.EncodeToString(treeHash)
-	return &encoded
-}
-
-func (s *Surge) checkPart(part *glacier.PartListElement) (bool, error) {
-	partRange := rangeFromString(part.RangeInBytes)
+func (s *Uploader) checkPart(part *glacier.PartListElement) (bool, error) {
+	partRange := utils.RangeFromString(part.RangeInBytes)
 	if partRange == nil {
 		return false, fmt.Errorf("part (%v) range is invalid", *part.RangeInBytes)
 	}
 
-	if partRange.offset >= s.size {
+	if partRange.Offset >= s.size {
 		return false, errors.New("file size mismatch")
 	}
 
-	body := io.NewSectionReader(s.file, partRange.offset, partRange.limit)
-	treeHash := s.computeTreeHash(body)
+	body := io.NewSectionReader(s.file, partRange.Offset, partRange.Limit)
+	treeHash := utils.ComputeTreeHash(body)
 	if treeHash == nil {
 		return false, fmt.Errorf("could not compute hashes of part (%v)", *part.RangeInBytes)
 	}
 
 	if *treeHash == *part.SHA256TreeHash {
-		s.uploaded[partRange.offset] = struct{}{}
+		s.uploaded[partRange.Offset] = struct{}{}
 		return true, nil
 	}
 	return false, nil
 }
 
-func (s *Surge) checkUploadedParts() error {
+func (s *Uploader) checkUploadedParts() error {
 	log.Println("start checking uploaded parts")
 
 	input := &glacier.ListPartsInput{
@@ -297,8 +253,8 @@ func (s *Surge) checkUploadedParts() error {
 	return nil
 }
 
-func (s *Surge) completeUpload() (*string, error) {
-	treeHash := s.computeTreeHash(s.file)
+func (s *Uploader) completeUpload() (*string, error) {
+	treeHash := utils.ComputeTreeHash(s.file)
 	if treeHash == nil {
 		return nil, errors.New("could not compute hashes")
 	}
@@ -323,7 +279,7 @@ func (s *Surge) completeUpload() (*string, error) {
 
 // Upload performs parallel multipart upload.
 // The maximum number of the parallel uploads is limited by the jobs parameter.
-func (s Surge) Upload(jobs int) error {
+func (s Uploader) Upload(jobs int) error {
 	if err := s.openFile(); err != nil {
 		return err
 	}
