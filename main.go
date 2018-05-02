@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 
-	"github.com/31z4/surge/surge"
-	"github.com/apex/log"
+	"github.com/31z4/surge/uploader"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 )
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	service := glacier.New(config)
-	input := &surge.UploadInput{
+	input := &uploader.Input{
 		AccountId: *accountId,
 		PartSize:  *partSize,
 		VaultName: vaultName,
@@ -56,7 +56,7 @@ func main() {
 		UploadId:  *uploadId,
 	}
 
-	uploader := surge.New(service, input)
+	uploader := uploader.New(service, input)
 
 	if err := uploader.Upload(*jobs); err != nil {
 		log.Fatal(err.Error())
