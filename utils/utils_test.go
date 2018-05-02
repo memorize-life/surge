@@ -1,6 +1,9 @@
 package utils
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
 func TestRangeFromString(t *testing.T) {
 	cases := map[string]struct {
@@ -62,4 +65,25 @@ func TestRangeFromString(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestComputeTreeHash(t *testing.T) {
+	t.Run("nil result", func(t *testing.T) {
+		var data []byte
+		reader := bytes.NewReader(data)
+
+		if got := ComputeTreeHash(reader); got != nil {
+			t.Errorf("got %#v, want nil", got)
+		}
+	})
+
+	t.Run("sha256 result", func(t *testing.T) {
+		data := []byte{'t', 'e', 's', 't'}
+		reader := bytes.NewReader(data)
+		want := "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+
+		if got := ComputeTreeHash(reader); *got != want {
+			t.Errorf("got %q, want %q", *got, want)
+		}
+	})
 }
