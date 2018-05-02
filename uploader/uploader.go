@@ -107,7 +107,7 @@ func (s *Uploader) getNextRange() *utils.Range {
 
 	return &utils.Range{
 		Offset: offset,
-		Limit: limit,
+		Limit:  limit,
 	}
 }
 

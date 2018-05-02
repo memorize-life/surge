@@ -1,3 +1,4 @@
+// Package utils contains various Amazon Glacier utility functions and structures.
 package utils
 
 import (
@@ -10,15 +11,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 )
 
+// Range represents a range of bytes that is used for multipart archive upload and download.
 type Range struct {
 	Offset int64
 	Limit  int64
 }
 
+// String returns the string representation.
 func (r *Range) String() string {
 	return fmt.Sprint(r.Offset, "-", r.Offset+r.Limit-1)
 }
 
+// RangeFromString constructs a Range from a string s.
+// If the string doesn't represent a valid byte range nil is returned.
 func RangeFromString(s *string) *Range {
 	split := strings.Split(*s, "-")
 	if len(split) != 2 {
@@ -46,6 +51,8 @@ func RangeFromString(s *string) *Range {
 	return &result
 }
 
+// ComputeTreeHash computes the hex encoded tree-hash of a seekable reader r.
+// If there was an error computing the hash nil is returned.
 func ComputeTreeHash(r io.ReadSeeker) *string {
 	treeHash := glacier.ComputeHashes(r).TreeHash
 	if treeHash == nil {
