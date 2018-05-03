@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/31z4/surge/uploader"
+	"github.com/31z4/surge/pkg/uploader"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 )
