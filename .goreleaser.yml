@@ -1,0 +1,6 @@
+builds:
+  - binary: surge
+    goos:
+      - windows
+      - darwin
+      - linux
