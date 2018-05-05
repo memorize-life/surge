@@ -17,7 +17,7 @@ For more information about Glacier, see its [official documentation](https://aws
 
 ## Installation
 
-Since `surge` is under active development you can only install it via `go get`:
+Either download the [latest release](https://github.com/31z4/surge/releases/latest) for your platform or install it via `go get`:
 
     go get -u github.com/31z4/surge
 
