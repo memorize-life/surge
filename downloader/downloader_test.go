@@ -76,7 +76,7 @@ func TestCheckJob(t *testing.T) {
 			return glacier.DescribeJobRequest{
 				Request: &aws.Request{
 					Data: &glacier.DescribeJobOutput{
-						Action: action,
+						Action:     action,
 						StatusCode: status,
 					},
 				},
@@ -103,8 +103,8 @@ func TestCheckJob(t *testing.T) {
 			return glacier.DescribeJobRequest{
 				Request: &aws.Request{
 					Data: &glacier.DescribeJobOutput{
-						Action: action,
-						StatusCode: status,
+						Action:        action,
+						StatusCode:    status,
 						StatusMessage: &message,
 					},
 				},
@@ -130,7 +130,7 @@ func TestCheckJob(t *testing.T) {
 			return glacier.DescribeJobRequest{
 				Request: &aws.Request{
 					Data: &glacier.DescribeJobOutput{
-						Action: action,
+						Action:     action,
 						StatusCode: status,
 					},
 				},
@@ -156,7 +156,7 @@ func TestCheckJob(t *testing.T) {
 			return glacier.DescribeJobRequest{
 				Request: &aws.Request{
 					Data: &glacier.DescribeJobOutput{
-						Action: action,
+						Action:     action,
 						StatusCode: status,
 					},
 				},
@@ -184,10 +184,10 @@ func TestCheckJob(t *testing.T) {
 			return glacier.DescribeJobRequest{
 				Request: &aws.Request{
 					Data: &glacier.DescribeJobOutput{
-						Action: action,
-						StatusCode: status,
+						Action:             action,
+						StatusCode:         status,
 						ArchiveSizeInBytes: &size,
-						SHA256TreeHash: &hash,
+						SHA256TreeHash:     &hash,
 					},
 				},
 			}
@@ -371,7 +371,7 @@ func TestDownloadPart(t *testing.T) {
 		downloader := New(mock, input)
 		r := &utils.Range{
 			Offset: 0,
-			Limit: 123,
+			Limit:  123,
 		}
 
 		err = downloader.downloadPart(r)
@@ -399,7 +399,7 @@ func TestDownloadPart(t *testing.T) {
 			return glacier.GetJobOutputRequest{
 				Request: &aws.Request{
 					Data: &glacier.GetJobOutputOutput{
-						Body: file,
+						Body:     file,
 						Checksum: &checksum,
 					},
 				},
@@ -443,7 +443,7 @@ func TestDownloadPart(t *testing.T) {
 			return glacier.GetJobOutputRequest{
 				Request: &aws.Request{
 					Data: &glacier.GetJobOutputOutput{
-						Body: file,
+						Body:     file,
 						Checksum: &checksum,
 					},
 				},
@@ -457,7 +457,7 @@ func TestDownloadPart(t *testing.T) {
 		downloader := New(mock, input)
 		r := &utils.Range{
 			Offset: 0,
-			Limit: 4,
+			Limit:  4,
 		}
 
 		err = downloader.downloadPart(r)
@@ -548,7 +548,7 @@ func TestDownloadPart(t *testing.T) {
 		downloader := New(mock, input)
 		r := &utils.Range{
 			Offset: 0,
-			Limit: 4,
+			Limit:  4,
 		}
 
 		if err := downloader.openFile(); err != nil {
@@ -681,7 +681,7 @@ func TestCheckTreeHash(t *testing.T) {
 
 		hash := ""
 		downloader := &Downloader{
-			file: file,
+			file:     file,
 			treeHash: &hash,
 		}
 
@@ -712,7 +712,7 @@ func TestCheckTreeHash(t *testing.T) {
 
 		hash := "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 		downloader := &Downloader{
-			file: file,
+			file:     file,
 			treeHash: &hash,
 		}
 
