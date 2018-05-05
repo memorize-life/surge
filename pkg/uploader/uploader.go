@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/31z4/surge/utils"
+	"github.com/31z4/surge/pkg/utils"
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 	"github.com/aws/aws-sdk-go-v2/service/glacier/glacieriface"
 	"github.com/pkg/errors"

@@ -7,8 +7,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/31z4/surge/mocks"
-	"github.com/31z4/surge/utils"
+	"github.com/31z4/surge/internal/mocks"
+	"github.com/31z4/surge/pkg/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/glacier"
 )
