@@ -62,7 +62,7 @@ func New(service glacieriface.GlacierAPI, input *Input) *Downloader {
 func (d *Downloader) openFile() error {
 	file, err := os.OpenFile(
 		d.input.FileName,
-		os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+		os.O_RDWR|os.O_CREATE|os.O_EXCL,
 		0644,
 	)
 	if err != nil {
@@ -75,7 +75,7 @@ func (d *Downloader) openFile() error {
 }
 
 func (d *Downloader) downloadPart(r *utils.Range) error {
-	rangeString := fmt.Sprint("bytes ", r, "/*")
+	rangeString := fmt.Sprint("bytes=", r)
 	input := &glacier.GetJobOutputInput{
 		AccountId: &d.input.AccountId,
 		JobId:     &d.input.JobId,
