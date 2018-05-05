@@ -1,0 +1,7 @@
+builds:
+  - main: ./cmd/surge/main.go
+    binary: surge
+    goos:
+      - windows
+      - darwin
+      - linux
