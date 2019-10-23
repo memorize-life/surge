@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/31z4/surge
     docker:
-      - image: golang:1
+      - image: golang:1.13
     steps:
       - checkout
 
