@@ -5,6 +5,7 @@ package downloader
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -42,7 +43,7 @@ type Input struct {
 
 // Downloader holds internal downloader state.
 type Downloader struct {
-	service glacieriface.GlacierAPI
+	service glacieriface.ClientAPI
 	input   *Input
 
 	file     *os.File
@@ -52,7 +53,7 @@ type Downloader struct {
 }
 
 // New creates a new instance of the downloader with a service and input.
-func New(service glacieriface.GlacierAPI, input *Input) *Downloader {
+func New(service glacieriface.ClientAPI, input *Input) *Downloader {
 	return &Downloader{
 		service: service,
 		input:   input,
@@ -84,7 +85,7 @@ func (d *Downloader) downloadPart(r *utils.Range) error {
 	}
 
 	request := d.service.GetJobOutputRequest(input)
-	result, err := request.Send()
+	result, err := request.Send(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -182,7 +183,7 @@ func (d *Downloader) checkJob() error {
 	}
 
 	request := d.service.DescribeJobRequest(input)
-	result, err := request.Send()
+	result, err := request.Send(context.TODO())
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@ import (
 
 // Glacier is a thread-safe Amazon Glacier client mock.
 type Glacier struct {
-	glacieriface.GlacierAPI
+	glacieriface.ClientAPI
 
 	CallCount uint32
 

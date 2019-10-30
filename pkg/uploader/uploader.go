@@ -4,6 +4,7 @@
 package uploader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -44,7 +45,7 @@ type Input struct {
 
 // Uploader holds internal uploader state.
 type Uploader struct {
-	service  glacieriface.GlacierAPI
+	service  glacieriface.ClientAPI
 	input    *Input
 	uploaded map[int64]struct{}
 
@@ -54,7 +55,7 @@ type Uploader struct {
 }
 
 // New creates a new instance of the uploader with a service and input.
-func New(service glacieriface.GlacierAPI, input *Input) *Uploader {
+func New(service glacieriface.ClientAPI, input *Input) *Uploader {
 	return &Uploader{
 		service:  service,
 		input:    input,
@@ -75,7 +76,7 @@ func (s *Uploader) initiateUpload() error {
 	}
 
 	request := s.service.InitiateMultipartUploadRequest(input)
-	result, err := request.Send()
+	result, err := request.Send(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func (s *Uploader) uploadPart(r *utils.Range) error {
 	}
 
 	request := s.service.UploadMultipartPartRequest(input)
-	if _, err := request.Send(); err != nil {
+	if _, err := request.Send(context.TODO()); err != nil {
 		return err
 	}
 
@@ -225,9 +226,9 @@ func (s *Uploader) checkUploadedParts() error {
 	}
 
 	request := s.service.ListPartsRequest(input)
-	pager := request.Paginate()
+	pager := glacier.NewListPartsPaginator(request)
 
-	for pager.Next() {
+	for pager.Next(context.TODO()) {
 		result := pager.CurrentPage()
 		if *result.PartSizeInBytes != s.input.PartSize {
 			return errors.New("part size mismatch")
@@ -269,7 +270,7 @@ func (s *Uploader) completeUpload() (*string, error) {
 	}
 
 	request := s.service.CompleteMultipartUploadRequest(input)
-	result, err := request.Send()
+	result, err := request.Send(context.TODO())
 	if err != nil {
 		return nil, err
 	}
